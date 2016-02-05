@@ -29,7 +29,7 @@
 // directories used for FOTA upgrade
 #define DB_DIR_FOTA                 "FOTA"
 #define DB_DIR_CONFIG               "CONFIG"
-
+//
 /* -- DB FULL FILEPATH -- */
 #define DBFILE(name)                DB_DIR_WORKING"\\"name
 #define DBFILE_TEMP(name)           DB_DIR_TEMP"\\"name
