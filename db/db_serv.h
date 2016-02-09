@@ -4,7 +4,7 @@
  * Created: 15.10.2012 14:52:36
  *  Author: user
  */
-
+//master
 
 #ifndef DB_SERV_H
 #define DB_SERV_H

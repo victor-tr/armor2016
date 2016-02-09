@@ -1,3 +1,5 @@
+// master
+
 #include "ql_stdlib.h"
 #include "ql_power.h"
 #include "ql_wtd.h"
