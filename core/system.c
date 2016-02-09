@@ -1013,21 +1013,29 @@ void Ar_System_processSoftwareTimers(void *data)
     {
         // WDT send
         Ar_System_WDT(200);
-        OUT_DEBUG_2("--------------------------\r\n");
-        OUT_DEBUG_2("Prepared to send to pult (pultTxBuffer.size) -> %d \r\n", pultTxBuffer.size());
-        OUT_DEBUG_2("PSS_Freeze_Counter = %d \r\n", Ar_System_getPSSFreezeCounter());
-        OUT_DEBUG_2("--------------------------\r\n");
+        OUT_DEBUG_2("------ pultTxBuffer.size = %d, PSS_Freeze_Counter = %d ------\r\n",
+                    pultTxBuffer.size(), Ar_System_getPSSFreezeCounter());
     }
 
-    if (INTERVAL_MS(60000)) // one minute counter
+    if (INTERVAL_MS(15*60*1000)) // one minute counter
     {
         u8 data[1] = {1};
         s32 rettt = reportToPultComplex(data, sizeof(data), PMC_ConnectionTest, PMQ_AuxInfoMsg);
 
-        if( 10 < ++PSS_Freze_Counter){
+
+    }
+
+    if (INTERVAL_MS(60*1000)) // one minute counter
+    {
+        if(pultTxBuffer.size() > 0){
+            if( 5 < ++PSS_Freze_Counter){
+                PSS_Freze_Counter = 0;
+                Ar_Timer_startSingle(TMR_PultSession_Timer, 1000);
+            }
+        }
+        else
+        {
             PSS_Freze_Counter = 0;
-            OUT_DEBUG_2("PSS_Freze_Counter > 60()\r\n");
-            Ar_Timer_startSingle(TMR_PultSession_Timer, 1000);
         }
 
     }
