@@ -154,6 +154,13 @@ static void System_finishInitSuccessfully(void)
 
 }
 
+void Ar_System_restoreGroupState()
+{
+    OUT_DEBUG_2("Ar_System_restoreGroupState()\r\n");
+
+}
+
+
 // WARNING: expected 2 items in each list
 static bool System_isMinimalConfigOk(void)
 {
@@ -363,13 +370,8 @@ static s32 System_startupInitialization_Step(void)
         ret = Ar_Timer_startContinuous(TMR_SoftwareTimersSet, SOFTWARE_TIMERS_INTERVAL);
         OUT_DEBUG_3("Ar_Timer_startContinuous(TMR_SoftwareTimersSet): %s\r\n", QL_RET_OK == ret ? "OK" : "FAIL");
 
-        //Send one time AT commsnd
-        char cmd[100] = {0};
-        Ql_sprintf(cmd, "AT+QSFR=0");
-        s32 retAT = Ql_RIL_SendATCmd(cmd, Ql_strlen(cmd), NULL, NULL, 0);
-        if (retAT != RIL_AT_SUCCESS){
-            OUT_DEBUG_1("AT+QSFR = %d error.\r\n", retAT);
-        }
+        // востанавливаем состояние групп
+        Ar_System_restoreGroupState();
 
 
 

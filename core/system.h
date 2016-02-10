@@ -55,6 +55,8 @@ s32 Ar_System_aboutToPowerOff(u8 reason);
 s32 Ar_System_enableBellAutoreport(UnitIdent *unit, bool enable);
 s32 Ar_System_acceptUnitConnectionRequest(UnitIdent *unit, bool accept);
 s32 Ar_System_indicateInitializationProgress(bool isActive);
+void Ar_System_restoreGroupState(void);
+
 
 //
 void Ar_System_setZoneAlarmedFlag(Zone *pZone, bool enabled);
