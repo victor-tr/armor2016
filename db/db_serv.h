@@ -35,6 +35,7 @@
 #define DBFILE_AUTOSYNC_TEMP(name)  DB_DIR_AUTOSYNC_TEMP"\\"name
 #define DBFILE_DYNAMIC(name)        DB_DIR_DYNAMIC"\\"name
 #define DBFILE_FOTA(name)           DB_DIR_FOTA"\\"name
+#define DBFILE_CONFIG(name)         DB_DIR_CONFIG"\\"name
 
 /* -- DB FILENAME -- */
 // -- dynamic
@@ -70,8 +71,12 @@
 #define FILENAME_PATTERN_PHONELIST_SIM2           "phonelist_sim2"
 
 // -- FOTA
-#define FILENAME_PATTERN_FOTA_DB_FILE              "fota_file"
-#define FOTA_READ_SIZE                              512
+#define FILENAME_PATTERN_FOTA_DB_FILE             "fota_file"
+#define FOTA_READ_SIZE                             512
+
+// -- CONFIG
+#define FILENAME_PATTERN_CONFIG_DB_FILE           "config_file"
+
 /* -- FUNCTIONS -- */
 s32 prepareDBinRAM(void);
 s32 reloadDBinRAM(void);

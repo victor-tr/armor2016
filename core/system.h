@@ -56,6 +56,9 @@ s32 Ar_System_enableBellAutoreport(UnitIdent *unit, bool enable);
 s32 Ar_System_acceptUnitConnectionRequest(UnitIdent *unit, bool accept);
 s32 Ar_System_indicateInitializationProgress(bool isActive);
 void Ar_System_restoreGroupState(void);
+void Ar_System_showGroupState(void);
+s32 Ar_System_refreshGroupState(void);
+s32 Ar_System_setGroupStateFromFile(void);
 
 
 //
@@ -81,6 +84,7 @@ bool Ar_System_isZonesInGroupNormal_Besides_WALK_THROUGH(ArmingGroup *pAG);
 bool Ar_System_isZonesInGroupNormal(ArmingGroup *pAG);
 
 void Ar_System_setBellState(PerformerUnitState state);
+void Ar_System_setBellBeep(void);
 
 //
 s32 Ar_System_sendEventDuplicateModule(u16 uin, DbObjectCode type);

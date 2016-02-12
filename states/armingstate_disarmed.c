@@ -136,6 +136,14 @@ s32 handler_arming(ArmingEvent *event)
 
     startArmingDelay(event->p_group);
     Ar_GroupState_setState(event->p_group, STATE_ARMED);
+    Ar_System_setBellBeep();
+
+
+    s32 retTable = Ar_System_refreshGroupState();
+    if (retTable < RETURN_NO_ERRORS)
+          OUT_DEBUG_1("Error %d! Ar_System_refreshGroupState()\r\n", retTable);
+    Ar_System_showGroupState();
+
 
     PultMessage msg = {0};
 

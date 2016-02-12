@@ -51,6 +51,8 @@ static IpAddress        *arr_IpAddresses_SIM2;
 static PultMessageBuilder *obj_MessageBuilder;
 static CommonSettings     *obj_CommonSettings;
 static SystemInfo         *obj_SystemInfo;
+
+static GroupStateFileList tbl_GroupStateFileList;
 // *******************************************************
 
 
@@ -2918,4 +2920,55 @@ bool checkDBStructureVersion(void)
     }
 
     return success;
+}
+
+//************************************************************************
+//* Group State File
+//************************************************************************/
+s32 createRuntimeTable_GroupStateFile()
+{
+    if (tbl_GroupStateFileList.t)
+        return RETURN_NO_ERRORS;
+
+    OUT_DEBUG_2("createRuntimeTable_GroupStateFile()\r\n");
+
+    u32 file_size = 0;
+    char *filename = DBFILE_CONFIG(FILENAME_PATTERN_CONFIG_DB_FILE);
+    s32 ret = CREATE_TABLE_FROM_DB_FILE( filename, (void **)&tbl_GroupStateFileList.t, &file_size );
+    if (ERR_DB_FILE_IS_EMPTY == ret) {
+        ret = RETURN_NO_ERRORS;
+    } else if (ret < RETURN_NO_ERRORS) {
+        OUT_DEBUG_1("CREATE_TABLE_FROM_DB_FILE( \"%s\" ) = %d error.\r\n", filename, ret);
+        return ret;
+    }
+
+    tbl_GroupStateFileList.size = file_size / sizeof(GroupStateFile);
+    return RETURN_NO_ERRORS;
+}
+
+s32 destroyRuntimeTable_GroupStateFile()
+{
+    if (! tbl_GroupStateFileList.t)
+        return RETURN_NO_ERRORS;
+
+    OUT_DEBUG_2("destroyRuntimeTable_GroupStateFile()\r\n");
+
+    Ql_MEM_Free(tbl_GroupStateFileList.t);
+    tbl_GroupStateFileList.t = NULL;
+    tbl_GroupStateFileList.size = 0;
+
+    return RETURN_NO_ERRORS;
+}
+
+GroupStateFileList *getGroupStateFile(s32 *error)
+{
+    if (error && !tbl_GroupStateFileList.t) {
+        *error = createRuntimeTable_GroupStateFile();
+        if (*error < RETURN_NO_ERRORS) {
+            OUT_DEBUG_1("createRuntimeArray_GroupStateFile() = %d error\r\n", *error);
+            return NULL;
+        }
+    }
+
+    return &tbl_GroupStateFileList;
 }

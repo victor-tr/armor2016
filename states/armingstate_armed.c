@@ -179,11 +179,18 @@ s32 handler_arming(ArmingEvent *event)
     Ar_System_stopPrevETRBuzzer(pGroup);
 
     stopBothDelays(event->p_group);
+    Ar_System_startEtrBuzzer(pGroup, 9, 1, 1, FALSE);
 
     Ar_GroupState_setState(event->p_group, STATE_DISARMED);
 
     //==================
     Ar_System_setBellState(UnitStateOff);
+    Ar_System_setBellBeep();
+
+    s32 retTable = Ar_System_refreshGroupState();
+    if (retTable < RETURN_NO_ERRORS)
+          OUT_DEBUG_1("Error %d! Ar_System_refreshGroupState()\r\n", retTable);
+    Ar_System_showGroupState();
 
 
     //===================

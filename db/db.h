@@ -830,4 +830,28 @@ typedef struct _CommonAutosyncSettings {
 } CommonAutosyncSettings;
 
 
+
+//************************************************************************
+//* структкра для энергонезависимого сохранения состояния групп
+//************************************************************************/
+typedef struct _GroupStateFile {
+    u8              id;
+    u8              state;
+} GroupStateFile;
+
+typedef struct _GroupStateFileList {
+    u8           size;
+    GroupStateFile *t;
+} GroupStateFileList;
+
+s32 createRuntimeTable_GroupStateFile();
+s32 destroyRuntimeTable_GroupStateFile();
+
+GroupStateFileList *getGroupStateFile(s32 *error);
+
+
+
+
+
+
 #endif /* DB_H_ */

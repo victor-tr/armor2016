@@ -355,6 +355,9 @@ s32 process_received_settings(RxConfiguratorPkt *pData)
         Ar_Configurator_setConnectionMode(CCM_NotConnected);
         if (_bTempDbSaved) {
             _bTempDbSaved = FALSE;
+
+            Ql_FS_Delete(DBFILE_CONFIG(FILENAME_PATTERN_CONFIG_DB_FILE));
+
             Ar_System_StartDeviceInitialization();
         }
         return RETURN_NO_ERRORS;

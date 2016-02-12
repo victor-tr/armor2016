@@ -1,6 +1,7 @@
 #include "ql_stdlib.h"
 #include "ql_power.h"
 #include "ql_wtd.h"
+#include "ql_fs.h"
 
 #include "atcommand.h"
 #include "canbus.h"
@@ -26,6 +27,7 @@
 #include "db/lexicon.h"
 #include "db/db.h"
 #include "db/db_serv.h"
+#include "db/fs.h"
 
 
 #define SOFTWARE_TIMERS_INTERVAL  100   // ms
@@ -74,6 +76,8 @@ static u8 system_error_buffer_delay_counter=0;
 static bool bFOTA_process = FALSE;
 
 static bool bAudio = FALSE;
+
+static bool  bOneSetLED = FALSE;
 
 static float last_voltage=0;
 
@@ -156,10 +160,178 @@ static void System_finishInitSuccessfully(void)
 
 void Ar_System_restoreGroupState()
 {
-    OUT_DEBUG_2("Ar_System_restoreGroupState()\r\n");
+    OUT_DEBUG_2("Ar_System_restoreGroupState(Terminal)\r\n");
 
+    // create DIR
+    s32 ret_dir = Ql_FS_CheckDir(DB_DIR_CONFIG);
+    if (QL_RET_ERR_FILENOTFOUND == ret_dir) {
+        OUT_DEBUG_1("Dir %s not found\r\n", DB_DIR_CONFIG);
+        if (!createDir(DB_DIR_CONFIG))
+        {
+            OUT_DEBUG_1("Dir %s create error\r\n", DB_DIR_CONFIG);
+            return;
+        }
+    }
+
+    s32 fh;
+    s32 retTable;
+
+    // check file
+    fh = Ql_FS_Check(DBFILE_CONFIG(FILENAME_PATTERN_CONFIG_DB_FILE));
+    if (fh < QL_RET_OK) {
+       OUT_DEBUG_1("File not found. Create file structura\r\n");
+
+       // create FILE
+       fh = Ql_FS_Open(DBFILE_CONFIG(FILENAME_PATTERN_CONFIG_DB_FILE), QL_FS_CREATE);
+       if (fh < QL_RET_OK) {
+           OUT_DEBUG_1("Error %d occured while creating or opening\"%s\".\r\n",
+                       fh, DBFILE_CONFIG(FILENAME_PATTERN_CONFIG_DB_FILE));
+       }
+       // close file
+       Ql_FS_Close(fh);
+
+       //create struct
+       u8 buf[256] = {0};
+
+       ArmingGroup_tbl *agt = getArmingGroupTable(NULL);
+
+       Ql_memset(buf,'0',agt->size * sizeof(GroupStateFile));
+       s32 retSave = saveToDbFile(DBFILE_CONFIG(FILENAME_PATTERN_CONFIG_DB_FILE), buf, Ql_strlen(buf), TRUE);
+
+       retTable = Ar_System_refreshGroupState();
+       if (retTable < RETURN_NO_ERRORS)
+             OUT_DEBUG_1("Error %d! Ar_System_refreshGroupState()\r\n", retTable);
+
+
+    }
+
+    retTable = createRuntimeTable_GroupStateFile();
+    if (retTable < RETURN_NO_ERRORS)
+        OUT_DEBUG_1("Error %d! createRuntimeTable_GroupStateFile \r\n", retTable);
+
+    Ar_System_showGroupState();
+
+    retTable = Ar_System_setGroupStateFromFile();
+    if (retTable < RETURN_NO_ERRORS)
+        OUT_DEBUG_1("Error %d! Ar_System_setGroupStateFromFile \r\n", retTable);
+
+
+
+
+
+    return;
 }
 
+
+s32 Ar_System_setGroupStateFromFile()
+{
+    OUT_DEBUG_2("Ar_System_setGroupStateFromFile()\r\n");
+
+    s32 retTable;
+    u16 id;
+    GroupStateFileList *groups_table = getGroupStateFile(&retTable);
+
+
+    ArmingGroup_tbl *agt = getArmingGroupTable(NULL);
+
+    if(agt->size != groups_table->size)
+    {
+        OUT_DEBUG_1("Group table size <> GroupStateFileList size\r\n");
+        return ERR_UNDEFINED_ERROR;
+    }
+
+    ArmingGroup *pGroup = 0;
+    GroupStateFile *pGroupStateFile = 0;
+
+    for (u16 group_pos = 0; group_pos < agt->size; ++group_pos)
+    {
+        pGroupStateFile = &groups_table->t[group_pos];
+        pGroup = getArmingGroupByID(pGroupStateFile->id);
+
+        if(pGroupStateFile->state > 0){
+            Ar_GroupState_setState(pGroup, STATE_ARMED);
+
+            id = pGroup->tbl_related_ETRs.t[0]->id;
+            ParentDevice *pParent = getParentDeviceByID(id, OBJ_ETR);
+            pGroup->change_status_ETR=pParent;
+
+
+//            retTable = Ar_System_setPrevETRLed(pGroup,UnitStateOn);
+//            if(retTable < RETURN_NO_ERRORS)
+//                pGroupStateFile->state = 2;
+        }
+    }
+
+    return RETURN_NO_ERRORS;
+}
+
+
+
+s32 Ar_System_refreshGroupState()
+{
+    OUT_DEBUG_2("Ar_System_refreshGroupState()\r\n");
+
+    s32 retTable;
+
+    GroupStateFileList *groups_table = getGroupStateFile(&retTable);
+
+
+    ArmingGroup_tbl *agt = getArmingGroupTable(NULL);
+
+    if(agt->size != groups_table->size)
+    {
+        OUT_DEBUG_1("Group table size <> GroupStateFileList size\r\n");
+        return ERR_UNDEFINED_ERROR;
+    }
+
+    ArmingGroup *pGroup = 0;
+    GroupStateFile *pGroupStateFile = 0;
+
+    for (u16 group_pos = 0; group_pos < agt->size; ++group_pos)
+    {
+        pGroup = &agt->t[group_pos];
+        pGroupStateFile = &groups_table->t[group_pos];
+        pGroupStateFile->id = pGroup->id;
+        if(TRUE == Ar_GroupState_isArmed(pGroup))
+            pGroupStateFile->state = 1;
+        else
+            pGroupStateFile->state = 0;
+    }
+
+    // save to DB
+    s32 retSaveToFile = saveToDbFile(DBFILE_CONFIG(FILENAME_PATTERN_CONFIG_DB_FILE), groups_table->t, sizeof(GroupStateFile) * groups_table->size, FALSE);
+    if(retSaveToFile < RETURN_NO_ERRORS)
+    {
+           OUT_DEBUG_1("saveToDbFile() = %d error. \r\n", retSaveToFile);
+           return ERR_UNDEFINED_ERROR;
+    }
+
+    retTable = destroyRuntimeTable_GroupStateFile();
+    retTable = createRuntimeTable_GroupStateFile();
+    if (retTable < RETURN_NO_ERRORS){
+        OUT_DEBUG_1("Error %d! createRuntimeTable_GroupStateFile \r\n", retTable);
+        return ERR_UNDEFINED_ERROR;
+    }
+
+    return RETURN_NO_ERRORS;
+}
+
+void Ar_System_showGroupState()
+{
+    s32 retTable;
+
+    GroupStateFileList *groups_table1 = getGroupStateFile(&retTable);
+    if (retTable < RETURN_NO_ERRORS)
+        OUT_DEBUG_1("getGroupStateFile Error %d\r\n", retTable);
+
+    OUT_DEBUG_2("groups_table->size = %d\r\n", groups_table1->size);
+
+    for (u16 pos = 0; pos < groups_table1->size; ++pos) {
+        GroupStateFile *pGroupStateFile = &groups_table1->t[pos];
+        OUT_DEBUG_2("id = %d, state = %d\r\n", pGroupStateFile->id, pGroupStateFile->state);
+    }
+
+}
 
 // WARNING: expected 2 items in each list
 static bool System_isMinimalConfigOk(void)
@@ -322,8 +494,10 @@ static s32 System_startupInitialization_Step(void)
             } else if (SIM_1 == Ar_SIM_newSlot() && Ar_SIM_canSlotBeUsed(SIM_2)) {
                 Ar_SIM_ActivateSlot(SIM_2);
             } else {
-                OUT_DEBUG_1("NO AVAILABLE SIM CARDS. Initialization stopped.\r\n");
-                return ERR_SIM_ACTIVATION_FAILED;
+//                OUT_DEBUG_1("NO AVAILABLE SIM CARDS. Initialization stopped.\r\n");
+//                return ERR_SIM_ACTIVATION_FAILED;
+                  OUT_DEBUG_1("NO AVAILABLE SIM CARDS. Initialization MUST stopped.\r\n");
+                  System_setStartupInitState(SIS_InitializeConnections);
             }
         }
 
@@ -1017,6 +1191,12 @@ void Ar_System_processSoftwareTimers(void *data)
         Ar_System_WDT(200);
         OUT_DEBUG_2("------ pultTxBuffer.size = %d, PSS_Freeze_Counter = %d ------\r\n",
                     pultTxBuffer.size(), Ar_System_getPSSFreezeCounter());
+
+
+
+
+
+
     }
 
     if (INTERVAL_MS(15*60*1000)) // one minute counter
@@ -1039,6 +1219,35 @@ void Ar_System_processSoftwareTimers(void *data)
         {
             PSS_Freze_Counter = 0;
         }
+
+        // засветить  леды на армированых етеерах
+        s32 retTable;
+
+        GroupStateFileList *groups_table = getGroupStateFile(&retTable);
+        ArmingGroup_tbl *agt = getArmingGroupTable(NULL);
+
+        ArmingGroup *pGroup = 0;
+        GroupStateFile *pGroupStateFile = 0;
+
+        for (u16 group_pos = 0; group_pos < agt->size; ++group_pos)
+        {
+            pGroupStateFile = &groups_table->t[group_pos];
+            pGroup = &agt->t[group_pos];
+
+            if(FALSE == bOneSetLED){
+                if(pGroupStateFile->state > 0)
+                    retTable = Ar_System_setPrevETRLed(pGroup,UnitStateOn);
+
+            }
+
+                OUT_DEBUG_2("------ pGroup = %d, pGroupStateFile = %d ------\r\n",
+                            Ar_GroupState_isArmed(pGroup), pGroupStateFile->state);
+
+        }
+
+        bOneSetLED = TRUE;
+
+
 
     }
 
@@ -1258,6 +1467,7 @@ s32 Ar_System_setPrevETRLed(ArmingGroup *pAG, PerformerUnitState state)
     ParentDevice *pPrev_ETR = getParentDeviceByID(pAG->change_status_ETR->id, OBJ_ETR);
     if(!pPrev_ETR){
         OUT_DEBUG_2("Ar_System_setPrevETRLed() prev ETR error\r\n");
+        return ERR_UNDEFINED_ERROR;
     }
     else
     {
@@ -1337,7 +1547,7 @@ s32 Ar_System_setPrevETRLed(ArmingGroup *pAG, PerformerUnitState state)
     // --
 
 
-
+    return RETURN_NO_ERRORS;
 }
 
 
@@ -1590,3 +1800,18 @@ void Ar_System_setBellState(PerformerUnitState state)
     s32 ret1 = setBellUnitState(pBell, state, &behavior);
 
 }
+
+
+void Ar_System_setBellBeep(void)
+{
+    BehaviorPreset behavior = {0};
+    behavior.pulse_len = 1;
+    behavior.pause_len = 1;
+    behavior.pulses_in_batch = 1;
+
+    Bell *pBell = getBellByID(1);
+
+    s32 ret1 = setBellUnitState(pBell, UnitStateMultivibrator, &behavior);
+
+}
+
